@@ -1,0 +1,198 @@
+Step-by-Step Guide: Setting Up a Vulnerable Banking Application in Docker
+Prerequisites
+
+    Docker Installed: Ensure Docker is installed on your machine. You can download Docker from Docker's official website.
+    Basic Knowledge: Familiarity with Docker concepts, SQL injection, and web application security.
+
+1. Prepare the Docker Environment
+
+1.1. Install Docker:
+
+    Follow installation instructions specific to your OS from Docker's installation guide.
+
+1.2. Install Docker Compose:
+
+    Docker Compose helps manage multi-container Docker applications.
+    Install Docker Compose by following Docker Compose installation instructions.
+
+2. Create Docker Configuration Files
+
+2.1. Create a Directory for Your Project:
+
+bash
+
+mkdir docker-banking-app
+cd docker-banking-app
+
+2.2. Create a Dockerfile for the Web Application:
+
+    Create a file named Dockerfile:
+
+    bash
+
+touch Dockerfile
+
+Open the Dockerfile and add the following content:
+
+Dockerfile
+
+    # Use an official PHP image as a base
+    FROM php:7.4-apache
+
+    # Install MySQL and PHP extensions
+    RUN docker-php-ext-install mysqli
+
+    # Copy the application files
+    COPY ./app /var/www/html/
+
+    # Set file permissions
+    RUN chown -R www-data:www-data /var/www/html
+    RUN chmod -R 755 /var/www/html
+
+2.3. Create a docker-compose.yml File:
+
+    Create a file named docker-compose.yml:
+
+    bash
+
+touch docker-compose.yml
+
+Open the docker-compose.yml file and add the following content:
+
+yaml
+
+    version: '3.8'
+
+    services:
+      web:
+        build: .
+        ports:
+          - "80:80"
+        volumes:
+          - ./app:/var/www/html
+        depends_on:
+          - db
+
+      db:
+        image: mysql:5.7
+        environment:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: bankdb
+          MYSQL_USER: bankuser
+          MYSQL_PASSWORD: bankpassword
+        ports:
+          - "3306:3306"
+
+2.4. Prepare the Vulnerable Banking Application:
+
+    Create a directory named app:
+
+    bash
+
+mkdir app
+
+In the app directory, create the following files:
+
+2.4.1. index.php:
+
+php
+
+<?php
+echo "<h1>Welcome to the Vulnerable Banking App</h1>";
+?>
+
+2.4.2. login.php:
+
+php
+
+<?php
+$mysqli = new mysqli("db", "bankuser", "bankpassword", "bankdb");
+
+if ($mysqli->connect_error) {
+    die("Connection failed: " . $mysqli->connect_error);
+}
+
+if (isset($_POST['username']) && isset($_POST['password'])) {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+    $query = "SELECT * FROM users WHERE username='$username' AND password='$password'";
+    $result = $mysqli->query($query);
+    if ($result->num_rows > 0) {
+        echo "Login successful!";
+    } else {
+        echo "Invalid credentials!";
+    }
+}
+?>
+<form method="post" action="login.php">
+    <input type="text" name="username" placeholder="Username">
+    <input type="password" name="password" placeholder="Password">
+    <input type="submit" value="Login">
+</form>
+
+2.4.3. schema.sql:
+
+sql
+
+    CREATE TABLE users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL,
+        password VARCHAR(50) NOT NULL
+    );
+
+    INSERT INTO users (username, password) VALUES ('admin', 'password');
+
+3. Build and Run the Docker Containers
+
+3.1. Build and Start the Containers:
+
+bash
+
+docker-compose up --build
+
+    This command builds the Docker images defined in the Dockerfile and docker-compose.yml and starts the containers.
+
+3.2. Initialize the Database:
+
+    Once the containers are running, you need to initialize the database with the schema:
+
+    bash
+
+    docker exec -i $(docker-compose ps -q db) mysql -u bankuser -pbankpassword bankdb < /var/lib/mysql-files/schema.sql
+
+4. Perform SQL Injection Testing
+
+4.1. Access the Application:
+
+    Open a web browser and navigate to http://localhost. You should see the login form.
+
+4.2. Test SQL Injection:
+
+    Use tools like SQLMap or Burp Suite to test the login endpoint for SQL injection vulnerabilities.
+    Example SQLMap command:
+
+    bash
+
+    sqlmap -u "http://localhost/login.php?username=admin&password=admin" --risk=3 --level=5 --dbs
+
+5. Clean Up
+
+5.1. Stop and Remove Containers:
+
+    When you are done, stop and remove the Docker containers:
+
+    bash
+
+    docker-compose down
+
+5.2. Remove Unused Images and Volumes (Optional):
+
+    Clean up unused Docker images and volumes:
+
+    bash
+
+    docker system prune -a
+
+Conclusion
+
+You now have a Dockerized environment with a vulnerable banking application that you can use to demonstrate and practice advanced SQL injection techniques. This setup allows you to safely and effectively test for SQL injection vulnerabilities in a controlled and reproducible environment.
