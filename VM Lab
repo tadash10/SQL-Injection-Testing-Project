@@ -1,0 +1,164 @@
+Step-by-Step Guide: Setting Up a VM Lab with an Insecure Banking Application
+Prerequisites
+
+    Virtualization Software: Ensure you have a virtualization tool like VirtualBox or VMware installed.
+    Basic Knowledge: Familiarity with SQL injection, web application security, and basic networking concepts.
+
+1. Prepare Your Virtual Machine Environment
+
+1.1. Install Virtualization Software:
+
+    Download and install VirtualBox (https://www.virtualbox.org/) or VMware Workstation/Player (https://www.vmware.com/products/workstation-player.html).
+
+1.2. Download an Operating System ISO:
+
+    Use a Linux distribution such as Ubuntu Server for the VM. Download the latest version from https://ubuntu.com/download/server.
+
+1.3. Create a New Virtual Machine:
+
+    Open VirtualBox/VMware and create a new VM.
+    Allocate at least 2 GB of RAM and 20 GB of disk space.
+    Attach the Ubuntu Server ISO to the VM and start it to begin the installation process.
+
+1.4. Install Ubuntu Server:
+
+    Follow the on-screen instructions to install Ubuntu Server.
+    Set up a user account and ensure SSH is enabled for remote access.
+
+2. Set Up the Vulnerable Banking Application
+
+2.1. Obtain the Banking Application:
+
+    For demonstration purposes, we’ll use a hypothetical insecure banking application. You can either:
+        Build a Custom Application: Develop a basic banking application with known vulnerabilities (recommended if you have development skills).
+        Download a Pre-Built Vulnerable App: Look for open-source or intentionally vulnerable applications that simulate banking features. If such an application isn’t readily available, you may need to create or modify one yourself.
+
+2.2. Install Prerequisites on the VM:
+
+    Update the VM:
+
+    bash
+
+sudo apt update && sudo apt upgrade -y
+
+Install Web Server and Database:
+
+bash
+
+    sudo apt install apache2 mysql-server php php-mysql git -y
+
+2.3. Configure the Database:
+
+    Secure MySQL Installation:
+
+    bash
+
+sudo mysql_secure_installation
+
+Create a Database and User for the Application:
+
+bash
+
+    sudo mysql
+    CREATE DATABASE bankdb;
+    CREATE USER 'bankuser'@'localhost' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON bankdb.* TO 'bankuser'@'localhost';
+    FLUSH PRIVILEGES;
+    EXIT;
+
+2.4. Deploy the Banking Application:
+
+    Clone or Upload the Application Files:
+
+    bash
+
+sudo git clone https://github.com/example/vulnerable-banking-app.git /var/www/html/banking
+
+Set Permissions:
+
+bash
+
+    sudo chown -R www-data:www-data /var/www/html/banking
+    sudo chmod -R 755 /var/www/html/banking
+
+2.5. Configure the Application:
+
+    Edit Database Configuration:
+        Navigate to the application’s configuration file (e.g., config.php or .env) and update the database credentials.
+
+    bash
+
+sudo nano /var/www/html/banking/config.php
+
+Ensure Database Tables are Created:
+
+    Import the initial database schema.
+
+bash
+
+    sudo mysql -u bankuser -p bankdb < /var/www/html/banking/schema.sql
+
+3. Configure the Application for SQL Injection Testing
+
+3.1. Enable Debugging and Error Reporting:
+
+    Modify the application configuration to enable verbose error messages for better debugging.
+    Edit PHP configuration (e.g., php.ini):
+
+    bash
+
+sudo nano /etc/php/7.4/apache2/php.ini
+
+Set:
+
+ini
+
+    display_errors = On
+    log_errors = On
+
+3.2. Add Vulnerable Features:
+
+    Ensure the application has functionalities prone to SQL injection, such as:
+        Login Forms: Where user inputs are directly used in SQL queries.
+        Search Functions: Allowing free text search that directly impacts SQL queries.
+        Transaction History: Displaying user transactions with minimal validation.
+
+4. Perform Advanced SQL Injection Testing
+
+4.1. Install Penetration Testing Tools:
+
+    On your testing machine (which could be another VM or your local setup):
+
+    bash
+
+    sudo apt install sqlmap burpsuite -y
+
+4.2. Test for SQL Injection:
+
+    Using SQLMap:
+
+    bash
+
+    sqlmap -u "http://<your-vm-ip>/banking/login.php?username=admin&password=admin" --risk=3 --level=5 --dbs
+
+    Using Burp Suite:
+        Configure Burp Suite to intercept traffic.
+        Use the Repeater tool to send various SQL injection payloads to the vulnerable endpoints.
+
+4.3. Document Findings:
+
+    Record the SQL injection vulnerabilities discovered.
+    Capture screenshots and logs showing the impact of each SQL injection technique tested.
+
+5. Secure the Environment
+
+5.1. Restore VM to Original State:
+
+    After testing, you might want to reset the VM to its original state by deleting and re-importing the snapshot.
+
+5.2. Follow Best Practices:
+
+    Keep the VM isolated from production networks.
+    Regularly update and patch the VM and its applications to minimize unintended exposure.
+
+This guide provides a structured approach to setting up and testing a vulnerable banking application for SQL injection. It covers the installation and configuration of a custom or pre-built application, along with the use of tools to demonstrate advanced SQL injection techniques.
