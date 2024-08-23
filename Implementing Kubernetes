@@ -1,0 +1,227 @@
+Step-by-Step Guide: Implementing Kubernetes for the Vulnerable Banking Application
+Prerequisites
+
+    Kubernetes Cluster: Have a Kubernetes cluster set up. You can use a local setup with Minikube, or a managed Kubernetes service like Google Kubernetes Engine (GKE), Azure Kubernetes Service (AKS), or Amazon EKS.
+    kubectl Installed: Ensure kubectl (Kubernetes command-line tool) is installed and configured to communicate with your Kubernetes cluster.
+
+1. Prepare Kubernetes Manifests
+
+Kubernetes uses YAML files (manifests) to define resources like deployments, services, and persistent volumes. You'll need to create these manifests for your application.
+
+1.1. Create a Directory for Kubernetes Manifests:
+
+bash
+
+mkdir k8s
+cd k8s
+
+1.2. Create a Deployment for the Web Application:
+
+    Create a file named web-deployment.yaml:
+
+    yaml
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: banking-app
+      labels:
+        app: banking-app
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          app: banking-app
+      template:
+        metadata:
+          labels:
+            app: banking-app
+        spec:
+          containers:
+          - name: banking-app
+            image: <your-dockerhub-username>/banking-app:latest
+            ports:
+            - containerPort: 80
+
+    Replace <your-dockerhub-username>/banking-app:latest with your Docker image repository and tag. Push your Docker image to a container registry (e.g., Docker Hub) if you haven't already.
+
+1.3. Create a Service for the Web Application:
+
+    Create a file named web-service.yaml:
+
+    yaml
+
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: banking-app-service
+    spec:
+      type: LoadBalancer
+      selector:
+        app: banking-app
+      ports:
+        - protocol: TCP
+          port: 80
+          targetPort: 80
+
+1.4. Create a Deployment for the Database:
+
+    Create a file named db-deployment.yaml:
+
+    yaml
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: banking-db
+      labels:
+        app: banking-db
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: banking-db
+      template:
+        metadata:
+          labels:
+            app: banking-db
+        spec:
+          containers:
+          - name: banking-db
+            image: mysql:5.7
+            env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "rootpassword"
+            - name: MYSQL_DATABASE
+              value: "bankdb"
+            - name: MYSQL_USER
+              value: "bankuser"
+            - name: MYSQL_PASSWORD
+              value: "bankpassword"
+            ports:
+            - containerPort: 3306
+
+1.5. Create a Service for the Database:
+
+    Create a file named db-service.yaml:
+
+    yaml
+
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: banking-db-service
+    spec:
+      selector:
+        app: banking-db
+      ports:
+        - protocol: TCP
+          port: 3306
+          targetPort: 3306
+
+1.6. Create a Persistent Volume and Persistent Volume Claim for MySQL (Optional):
+
+    Create a file named db-pv.yaml:
+
+    yaml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: banking-db-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data/banking-db
+
+Create a file named db-pvc.yaml:
+
+yaml
+
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: banking-db-pvc
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+
+2. Apply Kubernetes Manifests
+
+2.1. Deploy the Database:
+
+bash
+
+kubectl apply -f k8s/db-pv.yaml
+kubectl apply -f k8s/db-pvc.yaml
+kubectl apply -f k8s/db-deployment.yaml
+kubectl apply -f k8s/db-service.yaml
+
+2.2. Deploy the Web Application:
+
+bash
+
+kubectl apply -f k8s/web-deployment.yaml
+kubectl apply -f k8s/web-service.yaml
+
+3. Initialize the Database
+
+After deploying the MySQL database, you need to initialize it with the schema.
+
+3.1. Access the MySQL Pod:
+
+bash
+
+kubectl exec -it $(kubectl get pods -l app=banking-db -o jsonpath='{.items[0].metadata.name}') -- mysql -u bankuser -p bankdb
+
+3.2. Import the Schema:
+
+bash
+
+kubectl cp k8s/schema.sql $(kubectl get pods -l app=banking-db -o jsonpath='{.items[0].metadata.name}'):/
+kubectl exec -it $(kubectl get pods -l app=banking-db -o jsonpath='{.items[0].metadata.name}') -- mysql -u bankuser -p bankdb < /schema.sql
+
+4. Access the Application
+
+4.1. Get the External IP Address:
+
+    Check the external IP of the service:
+
+    bash
+
+    kubectl get services
+
+4.2. Access the Application:
+
+    Open a web browser and navigate to the external IP address of the banking-app-service.
+
+5. Clean Up
+
+5.1. Delete Kubernetes Resources:
+
+bash
+
+kubectl delete -f k8s/web-service.yaml
+kubectl delete -f k8s/web-deployment.yaml
+kubectl delete -f k8s/db-service.yaml
+kubectl delete -f k8s/db-deployment.yaml
+kubectl delete -f k8s/db-pv.yaml
+kubectl delete -f k8s/db-pvc.yaml
+
+5.2. Remove Docker Images (Optional):
+
+    If you want to clean up Docker images as well:
+
+    bash
+
+    docker image rm <your-dockerhub-username>/banking-app:latest
+
+Conclusion
+
+With these steps, you've set up a Kubernetes environment for your vulnerable banking application. Kubernetes handles the deployment, scaling, and management of containerized applications, providing a robust platform for both development and security testing. This setup allows you to practice advanced SQL injection techniques in a scalable and manageable environment.
